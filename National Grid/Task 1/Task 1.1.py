@@ -16,3 +16,4 @@ lines = pd.read_csv('lines.csv')
 # Check for duplicate entries
 # Validate that latitude/longitude fall within plausible West African bounds
 # Ensure data type consistency (numeric columns are truly numeric)
+
