@@ -1,0 +1,333 @@
+import pandas as pd                              # DataFrame library: loads/manipulates the CSVs as tables
+import numpy as np                                # Numeric library: used here for np.inf (infinity) in binning
+import matplotlib                                 # The base plotting library
+matplotlib.use("Agg")                             # Tell matplotlib to render to image files, not a screen window
+                                                   # (required because this environment has no display/GUI)
+import matplotlib.pyplot as plt                   # The plotting interface we actually call (plt.plot, plt.savefig, etc.)
+import folium                                     # Builds interactive Leaflet.js maps as standalone HTML files
+from folium.plugins import HeatMap, MarkerCluster # Extra folium widgets: a heatmap layer and a clustering marker layer
+from geopy.distance import geodesic               # Computes real-world distance between two (lat, lon) points
+from sklearn.cluster import DBSCAN                # Density-based clustering algorithm, used to find substation clusters
+import warnings                                   # Standard library module to control warning messages
+warnings.filterwarnings("ignore")                 # Suppress noisy deprecation/future warnings so output stays readable
+
+# Load the three source CSVs into DataFrames
+substations = pd.read_csv("substations.csv")      # One row per substation: id, name, region, lat/lon, voltage, capacity...
+lines = pd.read_csv("lines.csv")                  # One row per transmission/distribution line: source id, dest id, length...
+utilities = pd.read_csv("utilities.csv")          # One row per utility company (ECG, GRIDCo, VRA, etc.)
+
+# Build a fast lookup table: substation ID -> full row of that substation's data.
+# .set_index("Substation ID") makes the ID column the row label instead of a plain column,
+# so later we can write sub_lookup.loc[some_id] to grab that substation's lat/lon/etc in O(1).
+sub_lookup = substations.set_index("Substation ID")
+
+# SECTION 1: Recompute/verify line distances using the geodesic formula
+print("=" * 70)                                   # Print a divider line of 70 "=" characters (just for readable console output)
+print("1. GEODESIC DISTANCE VERIFICATION")
+print("=" * 70)
+
+
+def geodesic_km(src_id, dst_id):
+    # Look up the full row for the source and destination substation IDs
+    src = sub_lookup.loc[src_id]
+    dst = sub_lookup.loc[dst_id]
+    # geodesic() takes two (lat, lon) tuples and returns a Distance object;
+    # .km converts that object to a plain float number of kilometers.
+    # This uses an ellipsoidal model of the Earth (more accurate than a flat/spherical approximation).
+    return geodesic((src["Latitude"], src["Longitude"]), (dst["Latitude"], dst["Longitude"])).km
+
+
+# .apply(..., axis=1) runs the given function once per ROW of the `lines` DataFrame (axis=1 means "row-wise").
+# For each row `r`, we call geodesic_km() with that line's source and destination substation IDs.
+# round(..., 2) keeps the result to 2 decimal places. The result becomes a brand-new column.
+lines["Geodesic Distance (km)"] = lines.apply(
+    lambda r: round(geodesic_km(r["Source Substation ID"], r["Destination Substation ID"]), 2), axis=1)
+
+# Routing Factor = how much longer the real recorded line is compared to the straight-line distance.
+# A value of 1.0 would mean the line runs perfectly straight; >1.0 means it detours (terrain, roads, etc.)
+lines["Routing Factor"] = (lines["Length (km)"] / lines["Geodesic Distance (km)"]).round(2)
+
+# .mean() computes the average of a column across all rows
+print(f"\nMean recorded line length: {lines['Length (km)'].mean():.1f} km")          # :.1f = format to 1 decimal place
+print(f"Mean straight-line (geodesic) distance: {lines['Geodesic Distance (km)'].mean():.1f} km")
+print(f"Mean routing factor (recorded/geodesic): {lines['Routing Factor'].mean():.2f}")
+print(">> A routing factor > 1 is expected: real lines follow terrain/roads, not straight lines.")
+
+# SECTION 2: Substation density by region
+print("\n" + "=" * 70)
+print("2. SUBSTATION DENSITY BY REGION")
+print("=" * 70)
+
+# .groupby("Region") splits the substations DataFrame into one bucket per unique region value.
+# .agg({...}) then computes one or more summary statistics PER bucket, and we name each output column.
+density = substations.groupby("Region").agg(
+    substation_count=("Substation ID", "count"),   # count how many substation rows fall in each region
+    total_capacity_mva=("Capacity (MVA)", "sum"),  # sum the Capacity column within each region
+    avg_capacity_mva=("Capacity (MVA)", "mean"),   # average the Capacity column within each region
+).sort_values("substation_count", ascending=False)  # sort regions from most substations to fewest
+print("\n", density)
+
+# SECTION 3: Geographic clusters and coverage gaps (DBSCAN on lat/lon)
+print("\n" + "=" * 70)
+print("3. GEOGRAPHIC CLUSTERING (DBSCAN) AND COVERAGE GAPS")
+print("=" * 70)
+
+# Pull just the Latitude/Longitude columns and convert to a plain NumPy array of [lat, lon] pairs,
+# because scikit-learn's clustering functions expect raw numeric arrays, not a DataFrame.
+coords = substations[["Latitude", "Longitude"]].to_numpy()
+
+# DBSCAN groups points that are "close together" into clusters, and labels sparse/lonely points as noise (-1).
+#   eps=0.5      -> the neighborhood radius in the same units as the data (here, degrees of lat/lon;
+#                   ~0.5 degrees is roughly 50-55 km at this latitude)
+#   min_samples=2 -> a point needs at least 1 neighbor within eps to NOT be treated as noise
+# .fit(coords) runs the algorithm on our coordinate array.
+db = DBSCAN(eps=0.5, min_samples=2).fit(coords)
+
+# db.labels_ is an array with one cluster ID per substation, in the same order as `coords`.
+# We attach it back onto the DataFrame as a new column so each substation row knows its cluster.
+substations["Cluster"] = db.labels_
+
+# set(db.labels_) gives the unique cluster IDs seen (including -1 for noise).
+# Subtracting 1 if -1 is present removes the "noise" label from the cluster count.
+n_clusters = len(set(db.labels_)) - (1 if -1 in db.labels_ else 0)
+
+# Count how many points got the noise label (-1) -- these are isolated substations far from any cluster.
+n_noise = list(db.labels_).count(-1)
+
+print(f"\nClusters found: {n_clusters}")
+print(f"Isolated substations (no nearby neighbours, i.e. potential coverage gap markers): {n_noise}")
+
+# Boolean filtering: substations.loc[condition, [columns]] selects only the rows where Cluster == -1,
+# and only shows the Name/Region/Latitude/Longitude columns for readability.
+print("\nIsolated substations:\n",
+      substations.loc[substations["Cluster"] == -1, ["Name", "Region", "Latitude", "Longitude"]])
+
+# SECTION 4: Utility territory / footprint
+print("\n" + "=" * 70)
+print("4. UTILITY TERRITORY (LINE FOOTPRINT)")
+print("=" * 70)
+
+# Join the lines table to the utilities table on "Utility ID" so each line row gets the utility's short Code (e.g. "GRD").
+# how="left" keeps every line row even if (hypothetically) no matching utility were found.
+lines_u = lines.merge(utilities[["Utility ID", "Code"]], on="Utility ID", how="left")
+
+# Join again, this time to sub_lookup's Region column, matching each line's SOURCE substation ID
+# to the substation table's index (which is Substation ID, because we set_index() earlier).
+# right_index=True tells pandas "match against the right DataFrame's index, not a named column."
+footprint = lines_u.merge(sub_lookup[["Region"]], left_on="Source Substation ID", right_index=True)
+
+# Group by (utility code, region) pair and count how many lines fall into each combination --
+# this tells us which regions each utility is most active in.
+territory = footprint.groupby(["Code", "Region"]).size().reset_index(name="Line Count")
+
+# Sort descending by line count and show only the top 15 utility/region combinations.
+print("\nUtility line footprint by region (top 15):\n", territory.sort_values("Line Count", ascending=False).head(15))
+
+# SECTION 5: Distance analysis: short / medium / long
+print("\n" + "=" * 70)
+print("5. DISTANCE ANALYSIS")
+print("=" * 70)
+
+# Define the boundaries for our three length buckets: 0-20km, 20-60km, 60km-infinity.
+bins = [0, 20, 60, np.inf]
+labels = ["Short (<20km)", "Medium (20-60km)", "Long (>60km)"]
+
+# pd.cut() slices the numeric "Length (km)" column into the bins above and labels each row
+# with the matching category name. This creates a new categorical column.
+lines["Distance Category"] = pd.cut(lines["Length (km)"], bins=bins, labels=labels)
+
+# .value_counts() tallies how many rows fall into each category.
+print("\n", lines["Distance Category"].value_counts())
+
+# Create a figure with 1 row, 2 columns of subplots, sized 13x5 inches; ax is a 2-element array of axes.
+fig, ax = plt.subplots(1, 2, figsize=(13, 5))
+
+# Left subplot: bar chart of category counts.
+# .reindex(labels) forces the bar order to match Short/Medium/Long instead of whatever order pandas picked.
+lines["Distance Category"].value_counts().reindex(labels).plot(
+    kind="bar", ax=ax[0], color="#2E86AB", title="Lines by Distance Category")
+ax[0].set_ylabel("Count")
+
+# Right subplot: histogram of the raw line lengths, split into 20 bins.
+lines["Length (km)"].plot(kind="hist", bins=20, ax=ax[1], color="#A23B72", title="Line Length Distribution")
+ax[1].set_xlabel("Length (km)")
+
+plt.tight_layout()                                 # Auto-adjust spacing so titles/labels don't overlap
+plt.savefig("distance_distribution.png", dpi=120)  # Write the figure to a PNG file at 120 dots-per-inch
+plt.close()                                         # Free the figure from memory (good practice in scripts/loops)
+print("\nSaved distance_distribution.png")
+
+# SECTION 6: High-capacity substation clustering (visual)
+print("\n" + "=" * 70)
+print("6. HIGH-CAPACITY SUBSTATION CLUSTERING")
+print("=" * 70)
+
+# .quantile(0.75) finds the value below which 75% of capacities fall (the 75th percentile / top quartile cutoff).
+high_cap_threshold = substations["Capacity (MVA)"].quantile(0.75)
+
+# Create a True/False column: True if this substation's capacity is at/above the threshold.
+substations["High Capacity"] = substations["Capacity (MVA)"] >= high_cap_threshold
+
+print(f"\nHigh-capacity threshold (75th percentile): {high_cap_threshold:.1f} MVA")
+print(f"High-capacity substations: {substations['High Capacity'].sum()} of {len(substations)}")
+# .sum() on a boolean column counts the number of True values (True counts as 1, False as 0)
+
+plt.figure(figsize=(9, 10))                          # New figure, 9x10 inches
+
+# .map({True: ..., False: ...}) converts the boolean column into actual color strings for plotting.
+colors = substations["High Capacity"].map({True: "#C73E1D", False: "#cccccc"})
+
+# Scatter plot: one dot per substation, positioned at its (longitude, latitude).
+# c=colors colors each dot red or gray based on High Capacity.
+# s=... sets marker SIZE proportional to capacity (bigger capacity = bigger dot).
+plt.scatter(substations["Longitude"], substations["Latitude"], c=colors,
+            s=substations["Capacity (MVA)"] * 1.2, alpha=0.75, edgecolors="black", linewidths=0.3)
+plt.title("Substation Clustering by Location and Capacity\n(red = top-quartile capacity)")
+plt.xlabel("Longitude")
+plt.ylabel("Latitude")
+plt.tight_layout()
+plt.savefig("substation_clustering.png", dpi=120)
+plt.close()
+print("Saved substation_clustering.png")
+
+# SECTION 7: Regional connectivity vs WAPP cross-border points
+print("\n" + "=" * 70)
+print("7. REGIONAL CONNECTIVITY vs CROSS-BORDER (WAPP) INTERCONNECTIONS")
+print("=" * 70)
+
+# Split substations into two groups based on the Country column.
+ghana_subs = substations[substations["Country"] == "Ghana"]
+border_subs = substations[substations["Country"] != "Ghana"]
+
+print(f"\nGhana substations: {len(ghana_subs)}")
+print(f"Cross-border / interconnection substations: {len(border_subs)}")
+print("\nCross-border nodes:\n", border_subs[["Name", "Country", "Voltage (kV)"]])
+
+# Find every line where EITHER end (source OR destination) is one of the cross-border substations.
+# .isin(...) checks membership; the | is a boolean OR applied element-wise across the whole column.
+border_lines = lines[
+    lines["Source Substation ID"].isin(border_subs["Substation ID"]) |
+    lines["Destination Substation ID"].isin(border_subs["Substation ID"])
+]
+print(f"\nLines touching a cross-border node (WAPP interconnection lines): {len(border_lines)}")
+
+# Write a plain-text summary report
+with open("regional_analysis_report.txt", "w") as f:      # Open (create/overwrite) the report file for writing
+    f.write("TASK 2.2 - GEOGRAPHIC AND GEOSPATIAL ANALYSIS REPORT\n")
+    f.write("=" * 60 + "\n\n")
+    f.write("1. Substation density by region\n")
+    f.write(density.to_string() + "\n\n")                  # .to_string() renders a DataFrame as plain text (no HTML/index tricks)
+    f.write(f"2. Geographic clustering: {n_clusters} clusters found, {n_noise} isolated substations "
+            f"(potential coverage gaps)\n")
+    f.write(substations.loc[substations["Cluster"] == -1, ["Name", "Region"]].to_string() + "\n\n")
+    f.write("3. Distance category breakdown\n")
+    f.write(lines["Distance Category"].value_counts().to_string() + "\n\n")
+    f.write(f"4. High-capacity substations: {substations['High Capacity'].sum()} of {len(substations)} "
+            f"(threshold {high_cap_threshold:.1f} MVA)\n\n")
+    f.write(f"5. Ghana vs cross-border substations: {len(ghana_subs)} Ghana / {len(border_subs)} cross-border\n")
+    f.write(f"   WAPP interconnection lines: {len(border_lines)}\n")
+print("\nSaved regional_analysis_report.txt")
+# (the `with open(...) as f:` block automatically closes the file when it ends, even if an error occurs)
+
+# SECTION 8: Interactive multi-layer Folium map
+print("\n" + "=" * 70)
+print("8. BUILDING INTERACTIVE MULTI-LAYER MAP")
+print("=" * 70)
+
+# Center the map on the average lat/lon of all substations, so the initial view is roughly centered on the network.
+center = [substations["Latitude"].mean(), substations["Longitude"].mean()]
+
+# Create the base map object. zoom_start=6 is a reasonable starting zoom for a country-sized area.
+# tiles="CartoDB positron" is a clean, light basemap style (as opposed to the default OpenStreetMap look).
+m = folium.Map(location=center, zoom_start=6, tiles="CartoDB positron")
+
+# A dictionary mapping each voltage level (in kV) to a specific hex color, used for the voltage-colored layer.
+voltage_colors = {11: "#2ecc71", 33: "#f1c40f", 69: "#e67e22", 161: "#e74c3c", 330: "#8e44ad"}
+
+# --- Layer 1: substations coloured by voltage level ---
+# FeatureGroup is folium's way of bundling related map elements into one toggleable layer.
+# show=True means this layer is visible by default when the map loads.
+layer_voltage = folium.FeatureGroup(name="Substations by Voltage Level", show=True)
+
+# .iterrows() loops over the DataFrame one row at a time; _ discards the row's index number (we don't need it).
+for _, row in substations.iterrows():
+    folium.CircleMarker(
+        location=[row["Latitude"], row["Longitude"]],       # Where to place the dot
+        radius=4 + row["Capacity (MVA)"] / 80,               # Dot size scales with capacity (min radius 4)
+        color=voltage_colors.get(row["Voltage (kV)"], "#333333"),  # Look up color by voltage; default dark gray if missing
+        fill=True, fill_opacity=0.8,                         # Solid, mostly-opaque fill
+        popup=(f"<b>{row['Name']}</b><br>Region: {row['Region']}<br>"   # HTML shown when you click the marker
+               f"Voltage: {row['Voltage (kV)']} kV<br>Capacity: {row['Capacity (MVA)']} MVA<br>"
+               f"Status: {row['Status']}"),
+    ).add_to(layer_voltage)                                  # Attach this marker to the layer (not the map directly yet)
+layer_voltage.add_to(m)                                      # Attach the whole finished layer to the map
+
+# --- Layer 2: transmission lines ---
+layer_lines = folium.FeatureGroup(name="Transmission/Distribution Lines", show=True)
+line_color_by_status = {"Active": "#3498db", "Under Maintenance": "#e74c3c"}   # blue = active, red = under maintenance
+for _, row in lines.iterrows():
+    try:
+        # Look up the full substation record for both ends of this line
+        src = sub_lookup.loc[row["Source Substation ID"]]
+        dst = sub_lookup.loc[row["Destination Substation ID"]]
+    except KeyError:
+        # If a line references a substation ID that doesn't exist (data integrity issue), skip it instead of crashing
+        continue
+    folium.PolyLine(
+        locations=[[src["Latitude"], src["Longitude"]], [dst["Latitude"], dst["Longitude"]]],  # the two endpoints
+        color=line_color_by_status.get(row["Status"], "#999999"),   # color by status; gray if status is unrecognized
+        weight=1.5 + row["Voltage (kV)"] / 150,                     # thicker line = higher voltage
+        opacity=0.6,
+        popup=f"{row['Source Substation']} to {row['Destination Substation']} ({row['Length (km)']} km)",
+    ).add_to(layer_lines)
+layer_lines.add_to(m)
+
+# --- Layer 3: line-density heatmap ---
+heat_points = []                                    # Will hold [lat, lon, weight] triples for the heatmap
+for _, row in lines.iterrows():
+    try:
+        src = sub_lookup.loc[row["Source Substation ID"]]
+        dst = sub_lookup.loc[row["Destination Substation ID"]]
+    except KeyError:
+        continue
+    # The heatmap plots the MIDPOINT of each line (average of the two endpoints) rather than the whole line,
+    # since HeatMap expects point data, not line geometry.
+    mid_lat = (src["Latitude"] + dst["Latitude"]) / 2
+    mid_lon = (src["Longitude"] + dst["Longitude"]) / 2
+    heat_points.append([mid_lat, mid_lon, row["Voltage (kV)"] / 100])  # weight the "heat" by voltage level
+layer_heat = folium.FeatureGroup(name="Line Density Heatmap", show=False)   # off by default (would clutter the initial view)
+HeatMap(heat_points, radius=25, blur=18).add_to(layer_heat)   # radius/blur control how "spread out" the heat glow looks
+layer_heat.add_to(m)
+
+# --- Layer 4: utility-specific clustered markers ---
+layer_cluster = folium.FeatureGroup(name="Substation Clusters (all utilities)", show=False)
+# MarkerCluster automatically groups nearby markers into a single numbered bubble at low zoom levels,
+# and "explodes" them into individual markers as you zoom in -- useful for dense areas.
+marker_cluster = MarkerCluster().add_to(layer_cluster)
+for _, row in substations.iterrows():
+    folium.Marker(
+        location=[row["Latitude"], row["Longitude"]],
+        popup=row["Name"],
+    ).add_to(marker_cluster)
+layer_cluster.add_to(m)
+
+# --- Layer 5: cross-border / WAPP interconnection nodes highlighted ---
+layer_border = folium.FeatureGroup(name="Cross-Border (WAPP) Nodes", show=True)
+for _, row in border_subs.iterrows():
+    folium.Marker(
+        location=[row["Latitude"], row["Longitude"]],
+        icon=folium.Icon(color="darkred", icon="flag"),      # Use a distinct flag icon instead of a plain circle
+        popup=f"<b>{row['Name']}</b><br>{row['Country']}",
+    ).add_to(layer_border)
+layer_border.add_to(m)
+
+# Adds the little checkbox control (top-right of the map) that lets a viewer toggle each layer on/off.
+# collapsed=False keeps the control expanded by default instead of hidden behind an icon.
+folium.LayerControl(collapsed=False).add_to(m)
+
+m.save("grid_map_all_layers.html")     # Renders the whole map (base tiles + all layers) to a self-contained HTML file
+print("\nSaved grid_map_all_layers.html (open in a browser - layers are toggleable)")
+
+print("\n" + "=" * 70)
+print("TASK 2.2 COMPLETE")
+print("=" * 70)

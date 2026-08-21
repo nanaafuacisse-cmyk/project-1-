@@ -1,0 +1,50 @@
+TASK 2.2 - GEOGRAPHIC AND GEOSPATIAL ANALYSIS REPORT
+============================================================
+
+1. Substation density by region
+                      substation_count  total_capacity_mva  avg_capacity_mva
+Region                                                                      
+Greater Accra                        6               520.2         86.700000
+Ashanti                              5              1099.6        219.920000
+Western                              4               323.0         80.750000
+Central                              4               316.2         79.050000
+Eastern                              4               828.5        207.125000
+Volta                                4               470.3        117.575000
+Bono                                 3               252.6         84.200000
+Northern                             3               155.6         51.866667
+Upper East                           2               520.7        260.350000
+Benin                                1               487.6        487.600000
+Cote d'Ivoire                        1               262.6        262.600000
+Cote d'Ivoire border                 1               285.1        285.100000
+Burkina Faso                         1               445.9        445.900000
+Burkina Faso border                  1               156.1        156.100000
+Togo border                          1               423.2        423.200000
+Togo                                 1               120.2        120.200000
+Guinea                               1               251.6        251.600000
+Upper West                           1                27.1         27.100000
+
+2. Geographic clustering: 7 clusters found, 12 isolated substations (potential coverage gaps)
+                        Name                Region
+15     Cape Coast Substation               Central
+18     Assin Fosu Substation               Central
+23             Ho Substation                 Volta
+25          Hohoe Substation                 Volta
+31          Yendi Substation              Northern
+34          Bawku Substation            Upper East
+35             Wa Substation            Upper West
+37      Elubo Border Station  Cote d'Ivoire border
+40  Cotonou Transmission Hub                 Benin
+41  Abidjan Transmission Hub         Cote d'Ivoire
+42        Bobo-Dioulasso Hub          Burkina Faso
+43  Conakry Transmission Hub                Guinea
+
+3. Distance category breakdown
+Distance Category
+Long (>60km)        34
+Medium (20-60km)    12
+Short (<20km)        9
+
+4. High-capacity substations: 11 of 44 (threshold 254.3 MVA)
+
+5. Ghana vs cross-border substations: 36 Ghana / 8 cross-border
+   WAPP interconnection lines: 7
