@@ -1,0 +1,4 @@
+Relationship,Invalid References
+Utility → Line,0
+Substation → Line (Source),0
+Substation → Line (Destination),0
