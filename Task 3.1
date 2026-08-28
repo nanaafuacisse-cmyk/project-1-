@@ -1,0 +1,759 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/nanaafuacisse-cmyk/project-1-/blob/main/Task%203.1\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "9boTxoD11B31"
+      },
+      "outputs": [],
+      "source": []
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "seuhl-bZ1Pz4"
+      },
+      "outputs": [],
+      "source": [
+        "import csv\n",
+        "import math\n",
+        "import random\n",
+        "\n",
+        "random.seed(42)"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "hJGcLbWI1P3Y"
+      },
+      "outputs": [],
+      "source": [
+        "# Utilities\n",
+        "utilities = [\n",
+        "    (1, \"Electricity Company of Ghana\", \"ECG\", \"ECG\", \"Distribution\", \"Ghana\", \"Y\"),\n",
+        "    (2, \"Northern Electricity Distribution Company\", \"NEDCo\", \"NED\", \"Distribution\", \"Ghana\", \"Y\"),\n",
+        "    (3, \"Ghana Grid Company\", \"GRIDCo\", \"GRD\", \"Transmission\", \"Ghana\", \"Y\"),\n",
+        "    (4, \"Volta River Authority\", \"VRA\", \"VRA\", \"Generation\", \"Ghana\", \"Y\"),\n",
+        "    (5, \"Compagnie Ivoirienne d'Electricite\", \"CIE\", \"CIE\", \"Distribution\", \"Cote d'Ivoire\", \"Y\"),\n",
+        "    (6, \"Communaute Electrique du Benin\", \"CEB\", \"CEB\", \"Transmission\", \"Togo/Benin\", \"Y\"),\n",
+        "    (7, \"Societe Beninoise d'Energie Electrique\", \"SBEE\", \"SBE\", \"Distribution\", \"Benin\", \"Y\"),\n",
+        "    (8, \"Electricite de Guinee\", \"EDG\", \"EDG\", \"Distribution\", \"Guinea\", \"N\"),\n",
+        "    (9, \"Sonabel\", \"SONABEL\", \"SNB\", \"Distribution\", \"Burkina Faso\", \"Y\"),\n",
+        "    (10, \"Enclave Power Company\", \"EPC\", \"EPC\", \"Generation\", \"Ghana\", \"N\"),\n",
+        "]"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "Uv2ZodT81P7a"
+      },
+      "outputs": [],
+      "source": [
+        "ghana_regions = {\n",
+        "    \"Greater Accra\": [(\"Achimota\", 5.614, -0.224), (\"Tema\", 5.669, -0.017),\n",
+        "                       (\"Mallam\", 5.560, -0.298), (\"Legon\", 5.650, -0.186),\n",
+        "                       (\"Kaneshie\", 5.560, -0.238), (\"Aboadze Junction\", 5.590, -0.150)],\n",
+        "    \"Ashanti\": [(\"Kumasi Central\", 6.688, -1.624), (\"Ejisu\", 6.719, -1.463),\n",
+        "                (\"Obuasi\", 6.202, -1.663), (\"Mampong\", 7.062, -1.400), (\"Konongo\", 6.618, -1.219)],\n",
+        "    \"Western\": [(\"Takoradi\", 4.895, -1.759), (\"Aboadze\", 4.985, -1.766),\n",
+        "                (\"Tarkwa\", 5.301, -1.994), (\"Axim\", 4.867, -2.241)],\n",
+        "    \"Central\": [(\"Cape Coast\", 5.106, -1.246), (\"Winneba\", 5.352, -0.622),\n",
+        "                (\"Kasoa\", 5.533, -0.416), (\"Assin Fosu\", 5.699, -1.492)],\n",
+        "    \"Eastern\": [(\"Koforidua\", 6.094, -0.259), (\"Akosombo\", 6.300, 0.055),\n",
+        "                (\"Nkawkaw\", 6.550, -0.767), (\"Suhum\", 6.041, -0.451)],\n",
+        "    \"Volta\": [(\"Ho\", 6.611, 0.471), (\"Kpong\", 6.150, 0.100),\n",
+        "              (\"Hohoe\", 7.152, 0.472), (\"Sogakope\", 6.007, 0.573)],\n",
+        "    \"Bono\": [(\"Sunyani\", 7.339, -2.326), (\"Techiman\", 7.590, -1.938), (\"Berekum\", 7.453, -2.585)],\n",
+        "    \"Northern\": [(\"Tamale\", 9.403, -0.842), (\"Yendi\", 9.442, -0.011), (\"Savelugu\", 9.625, -0.826)],\n",
+        "    \"Upper East\": [(\"Bolgatanga\", 10.787, -0.851), (\"Bawku\", 11.058, -0.243)],\n",
+        "    \"Upper West\": [(\"Wa\", 10.061, -2.501)],\n",
+        "}"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "Z_RXGyOQ1P_P"
+      },
+      "outputs": [],
+      "source": [
+        "cross_border = [\n",
+        "    (\"Bolgatanga Interconnection\", \"Burkina Faso border\", 11.20, -0.75),\n",
+        "    (\"Elubo Border Station\", \"Cote d'Ivoire border\", 5.20, -2.85),\n",
+        "    (\"Aflao Border Station\", \"Togo border\", 6.12, 1.19),\n",
+        "    (\"Lome Transmission Hub\", \"Togo\", 6.13, 1.22),\n",
+        "    (\"Cotonou Transmission Hub\", \"Benin\", 6.37, 2.43),\n",
+        "    (\"Abidjan Transmission Hub\", \"Cote d'Ivoire\", 5.35, -4.00),\n",
+        "    (\"Bobo-Dioulasso Hub\", \"Burkina Faso\", 11.18, -4.30),\n",
+        "    (\"Conakry Transmission Hub\", \"Guinea\", 9.64, -13.58),\n",
+        "]\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "aM8sw8Ov1QC0"
+      },
+      "outputs": [],
+      "source": [
+        "voltage_levels = [11, 33, 69, 161, 330]\n",
+        "substations = []\n",
+        "sid = 1\n",
+        "name_to_id = {}"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "WitUV_g81uiW"
+      },
+      "outputs": [],
+      "source": [
+        "for region, places in ghana_regions.items():\n",
+        "    for name, lat, lon in places:\n",
+        "        voltage = random.choice(voltage_levels)\n",
+        "        if voltage >= 161:\n",
+        "            sub_type = \"Transmission\"\n",
+        "        elif voltage == 69:\n",
+        "            sub_type = \"Bulk Supply Point\"\n",
+        "        else:\n",
+        "            sub_type = \"Distribution\"\n",
+        "        if sub_type != \"Distribution\":\n",
+        "            capacity = round(random.uniform(15, 400), 1)\n",
+        "        else:\n",
+        "            capacity = round(random.uniform(5, 60), 1)\n",
+        "        status = \"Active\" if random.random() > 0.05 else \"Inactive\"\n",
+        "        substations.append([\n",
+        "            sid, f\"{name} Substation\", name, region, \"Ghana\",\n",
+        "            round(lat + random.uniform(-0.01, 0.01), 4),\n",
+        "            round(lon + random.uniform(-0.01, 0.01), 4),\n",
+        "            voltage, capacity, random.randint(1965, 2023), sub_type, status,\n",
+        "        ])\n",
+        "        name_to_id[name] = sid\n",
+        "        sid += 1\n",
+        "\n",
+        "for name, country, lat, lon in cross_border:\n",
+        "    voltage = random.choice([161, 330])\n",
+        "    capacity = round(random.uniform(100, 500), 1)\n",
+        "    substations.append([\n",
+        "        sid, name, name, country, country.split()[0],\n",
+        "        round(lat, 4), round(lon, 4), voltage, capacity,\n",
+        "        random.randint(1980, 2020), \"Transmission\", \"Active\",\n",
+        "    ])\n",
+        "    name_to_id[name] = sid\n",
+        "    sid += 1"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "IiAuCSgF12HN"
+      },
+      "outputs": [],
+      "source": [
+        "def haversine_km(lat1, lon1, lat2, lon2):\n",
+        "    r = 6371.0\n",
+        "    p1, p2 = math.radians(lat1), math.radians(lat2)\n",
+        "    dp = math.radians(lat2 - lat1)\n",
+        "    dl = math.radians(lon2 - lon1)\n",
+        "    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2\n",
+        "    return 2 * r * math.asin(math.sqrt(a))\n",
+        "\n",
+        "sub_by_id = {row[0]: row for row in substations}\n",
+        "lines = []\n",
+        "lid = 1\n",
+        "seen_pairs = set()"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "il5-mDwK17GW"
+      },
+      "outputs": [],
+      "source": [
+        "for region, places in ghana_regions.items():\n",
+        "    ids_in_region = [name_to_id[n] for n, _, _ in places]\n",
+        "    for i, a in enumerate(ids_in_region):\n",
+        "        for b in ids_in_region[i + 1:]:\n",
+        "            if random.random() < 0.55:\n",
+        "                pair = tuple(sorted((a, b)))\n",
+        "                if pair in seen_pairs:\n",
+        "                    continue\n",
+        "                seen_pairs.add(pair)\n",
+        "                utility_id = random.choice([1, 2, 3])\n",
+        "                sub_a, sub_b = sub_by_id[a], sub_by_id[b]\n",
+        "                dist = round(haversine_km(sub_a[5], sub_a[6], sub_b[5], sub_b[6]) * random.uniform(1.05, 1.3), 1)\n",
+        "                voltage = min(sub_a[7], sub_b[7])\n",
+        "                lines.append([\n",
+        "                    lid, utility_id, a, sub_a[1], b, sub_b[1],\n",
+        "                    voltage, dist, round(random.uniform(20, 300), 1),\n",
+        "                    \"Active\" if random.random() > 0.08 else \"Under Maintenance\",\n",
+        "                    random.choice([\"Overhead\", \"Underground\"]),\n",
+        "                ])\n",
+        "                lid += 1"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "nv4c1ZhS2AKL"
+      },
+      "outputs": [],
+      "source": [
+        "region_hub = {r: name_to_id[places[0][0]] for r, places in ghana_regions.items()}\n",
+        "region_names = list(region_hub.keys())\n",
+        "for i in range(len(region_names) - 1):\n",
+        "    a = region_hub[region_names[i]]\n",
+        "    b = region_hub[region_names[i + 1]]\n",
+        "    sub_a, sub_b = sub_by_id[a], sub_by_id[b]\n",
+        "    dist = round(haversine_km(sub_a[5], sub_a[6], sub_b[5], sub_b[6]) * 1.15, 1)\n",
+        "    lines.append([\n",
+        "        lid, 3, a, sub_a[1], b, sub_b[1], 330, dist,\n",
+        "        round(random.uniform(200, 600), 1), \"Active\", \"Overhead\",\n",
+        "    ])\n",
+        "    lid += 1"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "qozOz-vL2QvX"
+      },
+      "outputs": [],
+      "source": [
+        "border_links = [\n",
+        "    (\"Bolgatanga\", \"Bolgatanga Interconnection\", 9),\n",
+        "    (\"Bolgatanga Interconnection\", \"Bobo-Dioulasso Hub\", 9),\n",
+        "    (\"Elubo Border Station\", \"Kumasi Central\", 5),\n",
+        "    (\"Elubo Border Station\", \"Abidjan Transmission Hub\", 5),\n",
+        "    (\"Aflao Border Station\", \"Tema\", 6),\n",
+        "    (\"Aflao Border Station\", \"Lome Transmission Hub\", 6),\n",
+        "    (\"Lome Transmission Hub\", \"Cotonou Transmission Hub\", 6),\n",
+        "]\n",
+        "for src_name, dst_name, utility_id in border_links:\n",
+        "    if src_name not in name_to_id or dst_name not in name_to_id:\n",
+        "        continue\n",
+        "    a, b = name_to_id[src_name], name_to_id[dst_name]\n",
+        "    sub_a, sub_b = sub_by_id[a], sub_by_id[b]\n",
+        "    dist = round(haversine_km(sub_a[5], sub_a[6], sub_b[5], sub_b[6]) * 1.1, 1)\n",
+        "    lines.append([\n",
+        "        lid, utility_id, a, sub_a[1], b, sub_b[1], 330, dist,\n",
+        "        round(random.uniform(150, 400), 1), \"Active\", \"Overhead\",\n",
+        "    ])\n",
+        "    lid += 1"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "ABq2XafR2VX1",
+        "outputId": "6c0c7723-fb6c-4a75-f5fb-36a7c446fe81"
+      },
+      "outputs": [
+        {
+          "name": "stdout",
+          "output_type": "stream",
+          "text": [
+            "utilities: 10 rows\n",
+            "substations: 44 rows\n",
+            "lines: 55 rows\n"
+          ]
+        }
+      ],
+      "source": [
+        "with open(\"utilities.csv\", \"w\", newline=\"\") as f:\n",
+        "    w = csv.writer(f)\n",
+        "    w.writerow([\"Utility ID\", \"Name\", \"Alias\", \"Code\", \"Type\", \"Country\", \"Active\"])\n",
+        "    w.writerows(utilities)\n",
+        "\n",
+        "with open(\"substations.csv\", \"w\", newline=\"\") as f:\n",
+        "    w = csv.writer(f)\n",
+        "    w.writerow([\"Substation ID\", \"Name\", \"Short Name\", \"Region\", \"Country\", \"Latitude\", \"Longitude\",\n",
+        "                \"Voltage (kV)\", \"Capacity (MVA)\", \"Commissioning Year\", \"Type\", \"Status\"])\n",
+        "    w.writerows(substations)\n",
+        "\n",
+        "with open(\"lines.csv\", \"w\", newline=\"\") as f:\n",
+        "    w = csv.writer(f)\n",
+        "    w.writerow([\"Line ID\", \"Utility ID\", \"Source Substation ID\", \"Source Substation\",\n",
+        "                \"Destination Substation ID\", \"Destination Substation\", \"Voltage (kV)\",\n",
+        "                \"Length (km)\", \"Capacity (MVA)\", \"Status\", \"Line Type\"])\n",
+        "    w.writerows(lines)\n",
+        "\n",
+        "print(\"utilities:\", len(utilities), \"rows\")\n",
+        "print(\"substations:\", len(substations), \"rows\")\n",
+        "print(\"lines:\", len(lines), \"rows\")"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "V0VXr5ZQ2b75",
+        "outputId": "79ec1f01-301f-4b86-f3f6-7428bd9a53d2"
+      },
+      "outputs": [
+        {
+          "name": "stdout",
+          "output_type": "stream",
+          "text": [
+            "\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m10.5/10.5 MB\u001b[0m \u001b[31m89.9 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m\n",
+            "\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m11.4/11.4 MB\u001b[0m \u001b[31m84.6 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m\n",
+            "\u001b[?25h\u001b[1G\u001b[0K⠙\u001b[1G\u001b[0K⠹\u001b[1G\u001b[0K⠸\u001b[1G\u001b[0K⠼\u001b[1G\u001b[0K⠴\u001b[1G\u001b[0K⠦\u001b[1G\u001b[0K⠧\u001b[1G\u001b[0K⠇\u001b[1G\u001b[0K⠏\u001b[1G\u001b[0K⠋\u001b[1G\u001b[0K⠙\u001b[1G\u001b[0K⠹\u001b[1G\u001b[0K⠸\u001b[1G\u001b[0K⠼\u001b[1G\u001b[0K⠴\u001b[1G\u001b[0K⠦\u001b[1G\u001b[0K⠧\u001b[1G\u001b[0K⠇\u001b[1G\u001b[0K⠏\u001b[1G\u001b[0K\n",
+            "added 22 packages in 2s\n",
+            "\u001b[1G\u001b[0K⠏\u001b[1G\u001b[0K\n",
+            "\u001b[1G\u001b[0K⠏\u001b[1G\u001b[0K3 packages are looking for funding\n",
+            "\u001b[1G\u001b[0K⠏\u001b[1G\u001b[0K  run `npm fund` for details\n",
+            "\u001b[1G\u001b[0K⠏\u001b[1G\u001b[0K"
+          ]
+        }
+      ],
+      "source": [
+        "!pip install streamlit plotly networkx -q\n",
+        "!npm install -g localtunnel -q"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "7Pq28qTrX0U2"
+      },
+      "source": [
+        "**BUILDING DASHBOARD**"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "GgtL-WuvWtS1",
+        "outputId": "81a99894-a6e5-4ec9-bfab-adaeb5caca6f"
+      },
+      "outputs": [
+        {
+          "name": "stdout",
+          "output_type": "stream",
+          "text": [
+            "\u001b[2K   \u001b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u001b[0m \u001b[32m8.9/8.9 MB\u001b[0m \u001b[31m43.8 MB/s\u001b[0m eta \u001b[36m0:00:00\u001b[0m\n",
+            "\u001b[?25h\u001b[1G\u001b[0K⠙\u001b[1G\u001b[0K⠹\u001b[1G\u001b[0K⠸\u001b[1G\u001b[0K⠼\u001b[1G\u001b[0K⠴\u001b[1G\u001b[0K⠦\u001b[1G\u001b[0K\n",
+            "changed 22 packages in 782ms\n",
+            "\u001b[1G\u001b[0K⠦\u001b[1G\u001b[0K\n",
+            "\u001b[1G\u001b[0K⠦\u001b[1G\u001b[0K3 packages are looking for funding\n",
+            "\u001b[1G\u001b[0K⠦\u001b[1G\u001b[0K  run `npm fund` for details\n",
+            "\u001b[1G\u001b[0K⠦\u001b[1G\u001b[0K"
+          ]
+        }
+      ],
+      "source": [
+        "!pip install dash plotly networkx pandas -q\n",
+        "!npm install -g localtunnel -q"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "w76MjVdEWtdT",
+        "outputId": "0a49b7f2-e926-4df2-beb1-1bf5dc53ba7e"
+      },
+      "outputs": [
+        {
+          "name": "stdout",
+          "output_type": "stream",
+          "text": [
+            "Writing app.py\n"
+          ]
+        }
+      ],
+      "source": [
+        "%%writefile app.py\n",
+        "\n",
+        "# Dashboard Development using Dash\n",
+        "\n",
+        "import pandas as pd\n",
+        "import networkx as nx\n",
+        "import plotly.express as px\n",
+        "import plotly.graph_objects as go\n",
+        "from dash import Dash, dcc, html, dash_table, Input, Output\n",
+        "\n",
+        "\n",
+        "#  Load the data\n",
+        "\n",
+        "utilities = pd.read_csv(\"utilities.csv\")\n",
+        "substations = pd.read_csv(\"substations.csv\")\n",
+        "lines = pd.read_csv(\"lines.csv\")\n",
+        "lines = lines.merge(utilities[[\"Utility ID\", \"Alias\"]], on=\"Utility ID\", how=\"left\")\n",
+        "\n",
+        "region_list = sorted(substations[\"Region\"].unique())\n",
+        "voltage_list = sorted(substations[\"Voltage (kV)\"].unique())\n",
+        "utility_list = sorted(utilities[\"Alias\"].unique())\n",
+        "\n",
+        "# A helper function that applies the filters\n",
+        "\n",
+        "def filter_data(regions, voltages, utils):\n",
+        "    filtered_substations = substations[\n",
+        "        (substations[\"Region\"].isin(regions)) &\n",
+        "        (substations[\"Voltage (kV)\"].isin(voltages))\n",
+        "    ]\n",
+        "    sub_names = filtered_substations[\"Name\"].tolist()\n",
+        "    filtered_lines = lines[\n",
+        "        (lines[\"Alias\"].isin(utils)) &\n",
+        "        (lines[\"Source Substation\"].isin(sub_names)) &\n",
+        "        (lines[\"Destination Substation\"].isin(sub_names))\n",
+        "    ]\n",
+        "    return filtered_substations, filtered_lines\n",
+        "\n",
+        "# Build the app and its layout\n",
+        "\n",
+        "app = Dash(__name__)\n",
+        "\n",
+        "app.layout = html.Div([\n",
+        "    html.H1(\"National Electricity Grid Network Analysis\"),\n",
+        "    html.P(\"GridCare-Lite with ClinicCare-Lite — Course Final Project\"),\n",
+        "\n",
+        "    html.Div([\n",
+        "        html.Div([\n",
+        "            html.Label(\"Region\"),\n",
+        "            dcc.Dropdown(region_list, region_list, id=\"region-filter\", multi=True),\n",
+        "        ], style={\"width\": \"32%\", \"display\": \"inline-block\"}),\n",
+        "\n",
+        "        html.Div([\n",
+        "            html.Label(\"Voltage (kV)\"),\n",
+        "            dcc.Dropdown(voltage_list, voltage_list, id=\"voltage-filter\", multi=True),\n",
+        "        ], style={\"width\": \"32%\", \"display\": \"inline-block\", \"marginLeft\": \"2%\"}),\n",
+        "\n",
+        "        html.Div([\n",
+        "            html.Label(\"Utility\"),\n",
+        "            dcc.Dropdown(utility_list, utility_list, id=\"utility-filter\", multi=True),\n",
+        "        ], style={\"width\": \"32%\", \"display\": \"inline-block\", \"marginLeft\": \"2%\"}),\n",
+        "    ], style={\"marginBottom\": \"20px\"}),\n",
+        "\n",
+        "    dcc.Tabs([\n",
+        "        dcc.Tab(label=\"Overview\", children=[\n",
+        "            html.Div(id=\"kpi-cards\", style={\"display\": \"flex\", \"gap\": \"30px\", \"marginTop\": \"20px\"}),\n",
+        "            dcc.Graph(id=\"region-bar\"),\n",
+        "            dcc.Graph(id=\"voltage-bar\"),\n",
+        "        ]),\n",
+        "\n",
+        "        dcc.Tab(label=\"Network\", children=[\n",
+        "            html.Div(id=\"network-stats\", style={\"marginTop\": \"20px\"}),\n",
+        "            dcc.Graph(id=\"network-graph\"),\n",
+        "            html.H4(\"Most Connected Substations\"),\n",
+        "            dash_table.DataTable(id=\"network-table\", page_size=10),\n",
+        "        ]),\n",
+        "\n",
+        "        dcc.Tab(label=\"Geography\", children=[\n",
+        "            html.Label(\"Color the map by:\"),\n",
+        "            dcc.RadioItems(\n",
+        "                options=[\"Region\", \"Voltage (kV)\"], value=\"Region\",\n",
+        "                id=\"geo-color-choice\", inline=True\n",
+        "            ),\n",
+        "            dcc.Graph(id=\"geo-map\"),\n",
+        "        ]),\n",
+        "\n",
+        "        dcc.Tab(label=\"Reliability\", children=[\n",
+        "            dcc.Graph(id=\"status-bar\"),\n",
+        "            dcc.Graph(id=\"capacity-bar\"),\n",
+        "            dcc.Graph(id=\"age-hist\"),\n",
+        "        ]),\n",
+        "\n",
+        "        dcc.Tab(label=\"Search\", children=[\n",
+        "            html.H4(\"Find a Substation\"),\n",
+        "            dcc.Input(id=\"search-box\", type=\"text\", placeholder=\"Type a substation name...\"),\n",
+        "            dash_table.DataTable(id=\"search-table\", page_size=10),\n",
+        "\n",
+        "            html.H4(\"Compare Two Utilities\", style={\"marginTop\": \"30px\"}),\n",
+        "            html.Div([\n",
+        "                html.Div([\n",
+        "                    dcc.Dropdown(utility_list, utility_list[0], id=\"utility-1\"),\n",
+        "                    html.Div(id=\"utility-1-output\"),\n",
+        "                ], style={\"width\": \"48%\", \"display\": \"inline-block\"}),\n",
+        "\n",
+        "                html.Div([\n",
+        "                    dcc.Dropdown(utility_list, utility_list[1] if len(utility_list) > 1 else utility_list[0], id=\"utility-2\"),\n",
+        "                    html.Div(id=\"utility-2-output\"),\n",
+        "                ], style={\"width\": \"48%\", \"display\": \"inline-block\", \"marginLeft\": \"4%\"}),\n",
+        "            ]),\n",
+        "        ]),\n",
+        "    ]),\n",
+        "])\n",
+        "\n",
+        "#  OVERVIEW callback\n",
+        "\n",
+        "@app.callback(\n",
+        "    Output(\"kpi-cards\", \"children\"),\n",
+        "    Output(\"region-bar\", \"figure\"),\n",
+        "    Output(\"voltage-bar\", \"figure\"),\n",
+        "    Input(\"region-filter\", \"value\"),\n",
+        "    Input(\"voltage-filter\", \"value\"),\n",
+        "    Input(\"utility-filter\", \"value\"),\n",
+        ")\n",
+        "def update_overview(regions, voltages, utils):\n",
+        "    filtered_substations, filtered_lines = filter_data(regions, voltages, utils)\n",
+        "\n",
+        "    total_capacity = round(filtered_substations[\"Capacity (MVA)\"].sum(), 1)\n",
+        "\n",
+        "    def card(title, value):\n",
+        "        return html.Div([\n",
+        "            html.H3(str(value)),\n",
+        "            html.P(title),\n",
+        "        ], style={\"border\": \"1px solid #ddd\", \"padding\": \"10px 20px\", \"borderRadius\": \"8px\"})\n",
+        "\n",
+        "    cards = [\n",
+        "        card(\"Substations\", len(filtered_substations)),\n",
+        "        card(\"Lines\", len(filtered_lines)),\n",
+        "        card(\"Total Capacity (MVA)\", total_capacity),\n",
+        "        card(\"Utilities Selected\", len(utils)),\n",
+        "    ]\n",
+        "\n",
+        "    region_counts = filtered_substations[\"Region\"].value_counts().reset_index()\n",
+        "    region_counts.columns = [\"Region\", \"Count\"]\n",
+        "    fig1 = px.bar(region_counts, x=\"Region\", y=\"Count\", color=\"Region\", title=\"Substations by Region\")\n",
+        "\n",
+        "    voltage_counts = filtered_substations[\"Voltage (kV)\"].value_counts().reset_index()\n",
+        "    voltage_counts.columns = [\"Voltage (kV)\", \"Count\"]\n",
+        "    fig2 = px.bar(voltage_counts, x=\"Voltage (kV)\", y=\"Count\", title=\"Substations by Voltage Level\")\n",
+        "\n",
+        "    return cards, fig1, fig2\n",
+        "\n",
+        "#  NETWORK callback\n",
+        "\n",
+        "@app.callback(\n",
+        "    Output(\"network-stats\", \"children\"),\n",
+        "    Output(\"network-graph\", \"figure\"),\n",
+        "    Output(\"network-table\", \"data\"),\n",
+        "    Input(\"region-filter\", \"value\"),\n",
+        "    Input(\"voltage-filter\", \"value\"),\n",
+        "    Input(\"utility-filter\", \"value\"),\n",
+        ")\n",
+        "def update_network(regions, voltages, utils):\n",
+        "    filtered_substations, filtered_lines = filter_data(regions, voltages, utils)\n",
+        "\n",
+        "    G = nx.Graph()\n",
+        "    for index, row in filtered_substations.iterrows():\n",
+        "        G.add_node(row[\"Name\"])\n",
+        "    for index, row in filtered_lines.iterrows():\n",
+        "        G.add_edge(row[\"Source Substation\"], row[\"Destination Substation\"])\n",
+        "\n",
+        "    stats_text = f\"Nodes (substations): {G.number_of_nodes()}  |  Edges (lines): {G.number_of_edges()}\"\n",
+        "\n",
+        "    if G.number_of_nodes() == 0:\n",
+        "        return stats_text, go.Figure(), []\n",
+        "\n",
+        "    pos = nx.spring_layout(G, seed=42)\n",
+        "\n",
+        "    edge_x, edge_y = [], []\n",
+        "    for edge in G.edges():\n",
+        "        x0, y0 = pos[edge[0]]\n",
+        "        x1, y1 = pos[edge[1]]\n",
+        "        edge_x += [x0, x1, None]\n",
+        "        edge_y += [y0, y1, None]\n",
+        "\n",
+        "    edge_trace = go.Scatter(x=edge_x, y=edge_y, mode=\"lines\", line=dict(width=1, color=\"gray\"))\n",
+        "\n",
+        "    node_x, node_y, node_labels = [], [], []\n",
+        "    for node in G.nodes():\n",
+        "        x, y = pos[node]\n",
+        "        node_x.append(x)\n",
+        "        node_y.append(y)\n",
+        "        node_labels.append(node)\n",
+        "\n",
+        "    node_trace = go.Scatter(\n",
+        "        x=node_x, y=node_y, mode=\"markers\", text=node_labels,\n",
+        "        hoverinfo=\"text\", marker=dict(size=10, color=\"steelblue\")\n",
+        "    )\n",
+        "\n",
+        "    fig = go.Figure(data=[edge_trace, node_trace])\n",
+        "    fig.update_layout(title=\"Substation Network Graph\", showlegend=False, height=600)\n",
+        "\n",
+        "    degree_rows = [[node, G.degree(node)] for node in G.nodes()]\n",
+        "    degree_df = pd.DataFrame(degree_rows, columns=[\"Substation\", \"Connections\"])\n",
+        "    degree_df = degree_df.sort_values(\"Connections\", ascending=False).head(10)\n",
+        "\n",
+        "    return stats_text, fig, degree_df.to_dict(\"records\")\n",
+        "\n",
+        "# TAB GEOGRAPHY callback\n",
+        "@app.callback(\n",
+        "    Output(\"geo-map\", \"figure\"),\n",
+        "    Input(\"region-filter\", \"value\"),\n",
+        "    Input(\"voltage-filter\", \"value\"),\n",
+        "    Input(\"utility-filter\", \"value\"),\n",
+        "    Input(\"geo-color-choice\", \"value\"),\n",
+        ")\n",
+        "def update_geo(regions, voltages, utils, color_choice):\n",
+        "    filtered_substations, filtered_lines = filter_data(regions, voltages, utils)\n",
+        "\n",
+        "    fig = px.scatter_geo(\n",
+        "        filtered_substations, lat=\"Latitude\", lon=\"Longitude\",\n",
+        "        color=color_choice, size=\"Capacity (MVA)\", hover_name=\"Name\",\n",
+        "        hover_data=[\"Region\", \"Voltage (kV)\", \"Capacity (MVA)\"],\n",
+        "        scope=\"africa\", title=\"Substation Locations\"\n",
+        "    )\n",
+        "    fig.update_layout(height=600)\n",
+        "    return fig\n",
+        "\n",
+        "# RELIABILITY callback\n",
+        "\n",
+        "@app.callback(\n",
+        "    Output(\"status-bar\", \"figure\"),\n",
+        "    Output(\"capacity-bar\", \"figure\"),\n",
+        "    Output(\"age-hist\", \"figure\"),\n",
+        "    Input(\"region-filter\", \"value\"),\n",
+        "    Input(\"voltage-filter\", \"value\"),\n",
+        "    Input(\"utility-filter\", \"value\"),\n",
+        ")\n",
+        "def update_reliability(regions, voltages, utils):\n",
+        "    filtered_substations, filtered_lines = filter_data(regions, voltages, utils)\n",
+        "\n",
+        "    lines_with_region = filtered_lines.merge(\n",
+        "        filtered_substations[[\"Name\", \"Region\"]],\n",
+        "        left_on=\"Source Substation\", right_on=\"Name\", how=\"left\"\n",
+        "    )\n",
+        "    status_counts = lines_with_region.groupby([\"Region\", \"Status\"]).size().reset_index(name=\"Count\")\n",
+        "    fig1 = px.bar(status_counts, x=\"Region\", y=\"Count\", color=\"Status\", barmode=\"group\",\n",
+        "                  title=\"Line Status by Region\")\n",
+        "\n",
+        "    avg_capacity = filtered_lines.groupby(\"Alias\")[\"Capacity (MVA)\"].mean().reset_index()\n",
+        "    fig2 = px.bar(avg_capacity, x=\"Alias\", y=\"Capacity (MVA)\", title=\"Average Line Capacity by Utility\")\n",
+        "\n",
+        "    filtered_substations = filtered_substations.copy()\n",
+        "    filtered_substations[\"Age\"] = 2026 - filtered_substations[\"Commissioning Year\"]\n",
+        "    fig3 = px.histogram(filtered_substations, x=\"Age\", nbins=20, title=\"Substation Age Distribution\")\n",
+        "\n",
+        "    return fig1, fig2, fig3\n",
+        "\n",
+        "#  SEARCH callback (substation finder)\n",
+        "\n",
+        "@app.callback(\n",
+        "    Output(\"search-table\", \"data\"),\n",
+        "    Input(\"search-box\", \"value\"),\n",
+        "    Input(\"region-filter\", \"value\"),\n",
+        "    Input(\"voltage-filter\", \"value\"),\n",
+        "    Input(\"utility-filter\", \"value\"),\n",
+        ")\n",
+        "def update_search(search_text, regions, voltages, utils):\n",
+        "    filtered_substations, filtered_lines = filter_data(regions, voltages, utils)\n",
+        "\n",
+        "    if search_text:\n",
+        "        filtered_substations = filtered_substations[\n",
+        "            filtered_substations[\"Name\"].str.contains(search_text, case=False)\n",
+        "        ]\n",
+        "    return filtered_substations.to_dict(\"records\")\n",
+        "\n",
+        "# SEARCH callback (utility comparison)\n",
+        "\n",
+        "@app.callback(\n",
+        "    Output(\"utility-1-output\", \"children\"),\n",
+        "    Output(\"utility-2-output\", \"children\"),\n",
+        "    Input(\"utility-1\", \"value\"),\n",
+        "    Input(\"utility-2\", \"value\"),\n",
+        ")\n",
+        "def update_compare(utility1, utility2):\n",
+        "    def summary(utility_name):\n",
+        "        rows = lines[lines[\"Alias\"] == utility_name]\n",
+        "        if len(rows) == 0:\n",
+        "            return html.P(\"No lines found for this utility.\")\n",
+        "        return html.Div([\n",
+        "            html.P(f\"Number of Lines: {len(rows)}\"),\n",
+        "            html.P(f\"Average Capacity (MVA): {round(rows['Capacity (MVA)'].mean(), 1)}\"),\n",
+        "        ])\n",
+        "    return summary(utility1), summary(utility2)\n",
+        "\n",
+        "#  Run the server\n",
+        "\n",
+        "if __name__ == \"__main__\":\n",
+        "    app.run(host=\"0.0.0.0\", port=8050, debug=False)"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "colab": {
+          "background_save": true,
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "fAvezRnOsdkU",
+        "outputId": "35814abe-70ed-4546-82df-b6099c2f81a2"
+      },
+      "outputs": [
+        {
+          "name": "stdout",
+          "output_type": "stream",
+          "text": [
+            "136.110.60.136\n",
+            "\u001b[1G\u001b[0K⠙\u001b[1G\u001b[0K⠹\u001b[1G\u001b[0K⠸\u001b[1G\u001b[0K⠼\u001b[1G\u001b[0K⠴\u001b[1G\u001b[0K⠦\u001b[1G\u001b[0K⠧\u001b[1G\u001b[0K⠇\u001b[1G\u001b[0K⠏\u001b[1G\u001b[0K⠋\u001b[1G\u001b[0K⠙\u001b[1G\u001b[0K⠹\u001b[1G\u001b[0Kyour url is: https://wise-friends-sin.loca.lt\n"
+          ]
+        }
+      ],
+      "source": [
+        "\n",
+        "!python app.py &>/content/logs.txt &\n",
+        "import time\n",
+        "time.sleep(4)\n",
+        "!curl ipv4.icanhazip.com\n",
+        "!npx localtunnel --port 8050"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "9FNM9Z-asj-V"
+      },
+      "outputs": [],
+      "source": []
+    }
+  ],
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "display_name": "Python 3",
+      "name": "python3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 0
+}
