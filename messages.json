@@ -1,0 +1,14 @@
+[
+    {
+        "message_id": 1,
+        "sender": "patient001",
+        "recipient": "clinician001",
+        "message": "Hello doctor, i have completed my task."
+    },
+    {
+        "message_id": 2,
+        "sender": "clinician001",
+        "recipient": "patient001",
+        "message": "Thank you for the update. I have received your submission."
+    }
+]

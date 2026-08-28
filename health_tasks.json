@@ -1,0 +1,10 @@
+[
+    {
+        "task_id": 1,
+        "title": "Daily Exercise",
+        "description": "Walk for thirty minutes everyday",
+        "patient_id": "patient001",
+        "assigned_by": "clinician001",
+        "status": "assigned"
+    }
+]

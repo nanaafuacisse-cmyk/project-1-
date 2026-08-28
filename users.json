@@ -1,0 +1,12 @@
+[
+    {
+        "user_id": "patient001",
+        "password": "$2b$12$EU15z2Jr6P7NBZvoOK0TU.xnW2ZPvJIK0m.85VLBrT7eHjkWfV5Ni",
+        "role": "patient"
+    },
+    {
+        "user_id": "clinician001",
+        "password": "$2b$12$0FYzafm2HeFaV6EwNXL2BO5yK4UF7ldIfc8H3D/h/fOaLoH1Hc5nu",
+        "role": "clinician"
+    }
+]
